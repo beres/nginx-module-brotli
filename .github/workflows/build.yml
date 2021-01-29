@@ -29,7 +29,7 @@ jobs:
   build:
     name: Build
     strategy:
-      max-parallel: 3
+      max-parallel: 1
       matrix:
         os: ['ubuntu:20.04']
     runs-on: ubuntu-latest
@@ -102,20 +102,22 @@ jobs:
           git push origin --delete build-${{ steps.version.outputs.nginx_version }}-${{ steps.os_version.outputs.os_distribution }}
         if: env.WORKFLOW_CONCLUSION == 'success'
   
-  slackNotification:
+  mailNotification:
     needs: build
     name: Send notifications
     runs-on: ubuntu-latest
     steps:
       - uses: technote-space/workflow-conclusion-action@v1
-      - name: Slack Notification if build complete
-        uses: mint-hosting/action-slack-notify@5.0
+      - name: Send email
+        uses: dawidd6/action-send-mail@v2.4.0
         with:
           status: ${{ env.WORKFLOW_CONCLUSION }}
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
-          SLACK_USERNAME: ${{ secrets.SLACK_USERNAME }}
-          SLACK_MESSAGE: "${{ github.repository }} build succeeded!"
-          SLACK_TITLE: "Brotli Compile Status"
+          server_address: ${{secrets.MAIL_SERVER}}
+          server_port: 465
+          subject: Brotli Compile Status
+          body: Build job of ${{github.repository}} completed successfully!
+          to: ${{secrets.MAIL_TO}
+          from: ${{secrets.MAIL_FROM}}
+          content_type: text/plain
         if: env.WORKFLOW_CONCLUSION == 'success'
