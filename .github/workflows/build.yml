@@ -14,17 +14,9 @@ jobs:
         id: checks
         shell: bash
         env:
-          NGINX_TAGS: ${{ secrets.NGINX_TAGS }}
-          BROTLI_MINT_TAGS_URI: ${{ secrets.BROTLI_MINT_TAGS_URI }}
+          NGINX_RELEASE_VERSION: ${{ secrets.NGINX_RELEASE_VERSION }}
         run: |
-          nginx_release_version=$(curl -s $NGINX_TAGS | jq -r '.[0].name' | cut -d"-" -f2)
-          echo $nginx_release_version
-          node=$(curl -s $BROTLI_MINT_TAGS_URI | jq --arg NGINXVERSION "$nginx_release_version-debian-10" '.[] | select(.name==$NGINXVERSION) | .node_id')
-          echo $node > node.txt
-          value=$(cat node.txt | jq '. | length' )
-          if [ $value != 0 ]; then
-            exit 1
-          fi
+          echo $NGINX_RELEASE_VERSION
 
   build:
     name: Build
@@ -37,12 +29,16 @@ jobs:
     if: always()
     container: ${{ matrix.os }}
     steps:
-      - uses: technote-space/workflow-conclusion-action@v1
       - name: Install prerequisite packages
         shell: bash
         run: |
           apt update && apt-get install -y lsb-release curl jq git openssh-client
-        if: env.WORKFLOW_CONCLUSION == 'success'
+      - name: preapre
+        shell: bash
+        run: |
+          curl -sL https://deb.nodesource.com/setup_15.x | bash -
+          apt update && apt-get install -y nodejs
+      - uses: technote-space/workflow-conclusion-action@v1
       - name: Pull from repository
         uses: actions/checkout@v2
         with:
@@ -60,18 +56,15 @@ jobs:
         shell: bash
         id: version
         env:
-          NGINX_TAGS: ${{ secrets.NGINX_TAGS }}
+          NGINX_TAGS: ${{ secrets.NGINX_RELEASE_VERSION }}
         run: |
-          nginx_release_version=$(curl -s $NGINX_TAGS | jq -r '.[0].name' | cut -d"-" -f2)
-          echo "::set-output name=nginx_version::$nginx_release_version"
+          echo "::set-output name=nginx_version::$NGINX_TAGS"
         if: env.WORKFLOW_CONCLUSION == 'success'
       - name: Build
         shell: bash
         env:
           BUILD_OS_VERSION: ${{ steps.os_version.outputs.os_distribution }}
           BUILD_BASE_DIR: ${{ steps.os_version.outputs.os_distribution }}
-          BROTLI_GIT_REPO_URI: ${{ secrets.BROTLI_GIT_REPO_URI }}
-          NGINX_GIT_TAGS_URI: ${{ secrets.NGINX_GIT_TAGS_URI }}
         run: |
           echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
           chmod +x build.sh && sh build.sh
@@ -102,22 +95,3 @@ jobs:
           git push origin --delete build-${{ steps.version.outputs.nginx_version }}-${{ steps.os_version.outputs.os_distribution }}
         if: env.WORKFLOW_CONCLUSION == 'success'
   
-  mailNotification:
-    needs: build
-    name: Send notifications
-    runs-on: ubuntu-latest
-    steps:
-      - uses: technote-space/workflow-conclusion-action@v1
-      - name: Send email
-        uses: dawidd6/action-send-mail@v2.4.0
-        with:
-          status: ${{ env.WORKFLOW_CONCLUSION }}
-        env:
-          server_address: ${{secrets.MAIL_SERVER}}
-          server_port: 465
-          subject: Brotli Compile Status
-          body: Build job of ${{github.repository}} completed successfully!
-          to: ${{secrets.MAIL_TO}
-          from: ${{secrets.MAIL_FROM}}
-          content_type: text/plain
-        if: env.WORKFLOW_CONCLUSION == 'success'

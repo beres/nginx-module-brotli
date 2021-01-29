@@ -4,13 +4,10 @@
 BUILD_DIST_DIR=$PWD/$BUILD_BASE_DIR/build
 NGINX_GIT_CLONE_PATH=$PWD/$BUILD_BASE_DIR/tmp/nginx
 BROTLI_GIT_CLONE_PATH=$PWD/$BUILD_BASE_DIR/tmp/brotli
+BROTLI_GIT_REPO_URI=https://github.com/google/ngx_brotli.git
 
 # Install dependencies
 apt update && apt install -y jq git curl gnupg2 ca-certificates apt-utils autoconf automake build-essential git libcurl4-openssl-dev libgeoip-dev liblmdb-dev libpcre++-dev libtool libxml2-dev libyajl-dev pkgconf wget zlib1g-dev
-
-# Set nginx variables - latest version and the source download url
-nginx_download_uri=$(curl -s $NGINX_GIT_TAGS_URI | jq -r '.[0].tarball_url')
-NGINX_RELEASE_VERSION=$(curl -s $NGINX_GIT_TAGS_URI | jq -r '.[0].name' | cut -d"-" -f2)
 
 # Create required directories
 mkdir -p $BUILD_BASE_DIR
